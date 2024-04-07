@@ -1,0 +1,17 @@
+# Ignore IDE related files
+.idea/
+.vscode/
+
+# Ignore log files
+logs/
+*.log
+npm-debug.log*
+
+# Ignore dependency directories
+node_modules/
+
+# Ignore build/dist directories
+dist/
+
+# Ignore npm cache directory
+.npm/
