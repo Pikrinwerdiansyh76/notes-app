@@ -1,6 +1,7 @@
 import Utils from '../utils.js'
+import NotesApi from '../data/remote/note-api.js'
 
-class NoteList extends HTMLElement {
+class NoteListArchive extends HTMLElement {
   _shadowRoot = null
   _style = null
 
@@ -12,11 +13,21 @@ class NoteList extends HTMLElement {
 
   constructor() {
     super()
-
     this._shadowRoot = this.attachShadow({ mode: 'open' })
     this._style = document.createElement('style')
 
+    this.fetchArchivedNotes() // New line
     this.render()
+  }
+
+  async fetchArchivedNotes() {
+    try {
+      const archivedNotes = await NotesApi.getArchived()
+      this.notes = archivedNotes
+      this.render()
+    } catch (error) {
+      // Handle errors
+    }
   }
 
   _updateStyle() {
@@ -24,11 +35,11 @@ class NoteList extends HTMLElement {
       :host {
         display: block;
       }
-      
-      .list {
+  
+      .list-archive {
+        display: block;
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      
         gap: ${this.gutter}px;
       }
     `
@@ -65,11 +76,23 @@ class NoteList extends HTMLElement {
     this._updateStyle()
 
     this._shadowRoot.appendChild(this._style)
-    this._shadowRoot.innerHTML += `
-    <div class="list">
-        <slot></slot>
-      </div>
-    `
+
+    console.log('Archived notes:', this.notes?.length)
+
+    if (this.notes && this.notes.length > 0) {
+      this._shadowRoot.innerHTML += `
+        <h2>Note Arsip</h2>
+        <div class="list-archive">
+          <slot></slot>
+        </div>
+        <br>
+      `
+    } else {
+      // Optional: Display a message if there are no archived notes
+      this._shadowRoot.innerHTML += `
+        <h2>Tidak ada arsipan</h2>
+      `
+    }
   }
 
   attributeChangedCallback(name, oldValue, newValue) {
@@ -86,4 +109,4 @@ class NoteList extends HTMLElement {
   }
 }
 
-customElements.define('note-list', NoteList)
+customElements.define('note-list-archive', NoteListArchive)

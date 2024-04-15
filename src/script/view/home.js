@@ -1,127 +1,169 @@
-import Utils from "../utils.js";
-import NotesData from "../data/local/notesData.js";
+import Utils from '../utils.js'
+import NotesApi from '../data/remote/note-api.js'
+import { gsap } from 'gsap'
 
 const home = () => {
-  const searchFormElement = document.querySelector("#searchForm");
+  const searchFormElement = document.querySelector('#searchForm')
 
-  const addNoteFormElement = document.querySelector("#addNoteForm");
-  const notesData = NotesData.getAll();
+  const addNoteFormElement = document.querySelector('#addNoteForm')
 
-  const noteListContainerElement = document.querySelector("#noteListContainer");
+  const noteListContainerElement = document.querySelector('#noteListContainer')
   const noteLoadingElement =
-    noteListContainerElement.querySelector(".search-loading");
-  const noteListElement = noteListContainerElement.querySelector("note-list");
-  const newNoteNameElement = document.querySelector("#newNoteName");
-  const newNoteDescriptionElement = document.querySelector(
-    "#newNoteDescription"
-  );
+    noteListContainerElement.querySelector('.search-loading')
+  const noteSearchErrorElement =
+    noteListContainerElement.querySelector('note-search-error')
+  const noteListElement = noteListContainerElement.querySelector('note-list')
+  const noteListArchiveElement =
+    noteListContainerElement.querySelector('note-list-archive')
+
+  let notesData = []
+
   // Add note
-  addNoteFormElement.addEventListener("submit", (event) => {
-    event.preventDefault();
+  addNoteFormElement.addEventListener('submit', (event) => {
+    event.preventDefault()
 
-    const newNoteName = document.querySelector("#newNoteName").value;
-    const newNoteDescription = document.querySelector(
-      "#newNoteDescription"
-    ).value;
+    const newNoteName = document.querySelector('#newNoteName').value.trim()
+    const newNoteDescription = document
+      .querySelector('#newNoteDescription')
+      .value.trim()
 
-    const noteValidation = document.getElementById("noteNameValidation");
+    const noteValidation = document.getElementById('noteNameValidation')
 
-    if (newNoteName.trim() === "") {
-      noteValidation.textContent = "judul harus diisi!";
-      noteValidation.style.color = "white";
-      return;
+    if (newNoteName.trim() === '') {
+      noteValidation.textContent = 'judul harus diisi!'
+      noteValidation.style.color = 'white'
+      return
     } else if (newNoteName.length < 3) {
-      noteValidation.textContent = "Judul min 3 karakter!";
-      noteValidation.style.color = "#E72929";
-      noteValidation.style.fontWeight = "500";
-      return;
+      noteValidation.textContent = 'Judul min 3 karakter!'
+      noteValidation.style.color = '#E72929'
+      noteValidation.style.fontWeight = '500'
+      return
     } else {
-      noteValidation.textContent = "";
+      noteValidation.textContent = ''
     }
 
     const newNote = {
       title: newNoteName,
       body: newNoteDescription,
-      createAt: new Date(),
-      isArchieved: false,
-    };
+    }
 
-    notesData.push(newNote);
-
-    alert("Catatan berhasil ditambahkan");
-    newNoteNameElement.value = "";
-    newNoteDescriptionElement.value = "";
-
-    displayResult(notesData);
-
-    const listItemElement = document.createElement("div");
-    listItemElement.classList.add("card");
-    listItemElement.innerHTML = `
-      <div class="note-info">
-        <div class="note-info__title">
-          <h2>${newNote.title}</h2>
-        </div>
-        <div class="note-info__description">
-          <p>${newNote.body}</p>
-        </div>
-      </div>
-    `;
-  });
+    NotesApi.createNote(newNote)
+      .then(() => {
+        notesData.push(newNote)
+        alert('Catatan berhasil ditambahkan')
+        document.querySelector('#newNoteName').value = ''
+        document.querySelector('#newNoteDescription').value = ''
+        displayResult(notesData)
+        showNote()
+        addNoteFormElement.reset()
+      })
+      .catch((error) => {
+        console.error('Error adding note:', error)
+      })
+  })
 
   // Searching
   const search = () => {
-    const searchTerm = document.querySelector("#name").value.toLowerCase();
-    showLoading();
+    const searchTerm = document.querySelector('#name').value.toLowerCase()
+    showLoading()
 
-    const filteredResults = NotesData.getAll().filter((note) => {
-      return note.title.toLowerCase().includes(searchTerm);
-    });
-    displayResult(filteredResults);
+    const filteredRegularNotes = notesData
+      .filter((note) => !note.isArchived) // Exclude archived notes
+      .filter((note) => note.title.toLowerCase().includes(searchTerm))
 
-    showNoteList();
-  };
+    const filteredArchivedNotes = notesData
+      .filter((note) => note.isArchived) // Include only archived notes
+      .filter((note) => note.title.toLowerCase().includes(searchTerm))
+
+    const allFilteredNotes = filteredRegularNotes.concat(filteredArchivedNotes)
+
+    if (allFilteredNotes.length === 0) {
+      const errorElement = document.createElement('note-search-error')
+      noteListContainerElement.appendChild(errorElement)
+    } else {
+      displayResult(allFilteredNotes)
+      showNoteList()
+    }
+  }
 
   const showNote = () => {
-    showLoading();
+    showLoading()
 
-    const result = NotesData.getAll();
-    displayResult(result);
+    Promise.all([NotesApi.getAll(), NotesApi.getArchived()])
+      .then(([allNotes, archivedNotes]) => {
+        const searchTerm = document.querySelector('#name').value.toLowerCase()
+        notesData = searchTerm ? [] : allNotes.concat(archivedNotes)
 
-    showNoteList();
-  };
+        displayResult(notesData)
+      })
+      .catch((error) => {
+        noteSearchErrorElement.textContent = error.message
+        showSearchError()
+      })
+      .finally(() => {
+        showNoteList()
+      })
+  }
 
   // Display Note
   const displayResult = (notesData) => {
-    const noteItemElements = notesData.map((note) => {
-      const noteItemElement = document.createElement("note-item");
-      noteItemElement.note = note;
-      return noteItemElement;
-    });
+    const existingNoteElements = {} // Track existing notes in the DOM
 
-    Utils.emptyElement(noteListElement);
-    noteListElement.append(...noteItemElements);
-  };
+    // Clear existing notes from the DOM
+    ;[noteListElement, noteListArchiveElement].forEach((element) => {
+      element.innerHTML = '' // Clear all child elements
+    })
+
+    const noteElements = notesData.map((note) => {
+      const existingElement = existingNoteElements[note.id]
+      if (existingElement) {
+        return existingElement
+      }
+
+      const newElement = note.isArchived
+        ? document.createElement('note-archive')
+        : document.createElement('note-item')
+      newElement.note = note
+      existingNoteElements[note.id] = newElement
+      return newElement
+    })
+
+    noteElements.forEach((element) => {
+      const parentElement = element.note.isArchived
+        ? noteListArchiveElement
+        : noteListElement
+      parentElement.appendChild(element)
+    })
+  }
 
   const showLoading = () => {
     Array.from(noteListContainerElement.children).forEach((element) => {
-      Utils.hideElement(element);
-    });
-    Utils.showElement(noteLoadingElement);
-  };
+      Utils.hideElement(element)
+    })
+    Utils.showElement(noteLoadingElement)
+  }
 
   const showNoteList = () => {
     Array.from(noteListContainerElement.children).forEach((element) => {
-      Utils.hideElement(element);
-    });
-    Utils.showElement(noteListElement);
-  };
+      Utils.hideElement(element)
+    })
+    Utils.showElement(noteListElement)
+    Utils.showElement(noteListArchiveElement)
+  }
 
-  searchFormElement.addEventListener("submit", (event) => {
-    event.preventDefault();
-    search();
-  });
+  const showSearchError = () => {
+    Array.from(noteListContainerElement.children).forEach((element) => {
+      Utils.hideElement(element)
+    })
+    Utils.showElement(noteSearchErrorElement)
+  }
 
-  showNote();
-};
+  searchFormElement.addEventListener('submit', (event) => {
+    event.preventDefault()
+    search()
+  })
 
-export default home;
+  showNote()
+}
+
+export default home

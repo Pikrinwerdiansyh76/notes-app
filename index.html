@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <head>
     <meta http-equiv="Content-Type" content="text/html;charset=UTF-8" />
@@ -6,10 +6,7 @@
     <title>Notes App</title>
 
     <!-- Icons -->
-    <link rel="icon" href="/src/public/notes.png" sizes="512x512" />
-
-    <!-- CSS -->
-    <link rel="stylesheet" href="/src/styles/style.css" />
+    <link rel="icon" href="notes.png" sizes="48x48" />
   </head>
 
   <body>
@@ -69,8 +66,12 @@
 
           <div id="noteListContainer" class="note-list-container">
             <div class="placeholder search-loading">Loading</div>
+            <note-search-error
+              style="display: block !important; background-color: red"
+            ></note-search-error>
 
             <note-list></note-list>
+            <note-list-archive></note-list-archive>
           </div>
         </section>
       </div>
@@ -79,8 +80,8 @@
     <!-- FooterBar -->
     <footer>
       <footer-bar></footer-bar>
-    </footer>
 
-    <script type="module" src="/src/app.js"></script>
+      <!-- <script type="module" src="/src/app.js"></script> -->
+    </footer>
   </body>
 </html>
